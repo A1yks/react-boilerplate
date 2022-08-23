@@ -19,15 +19,17 @@ function getFilename(ext: string) {
     return isDev ? `[name].${ext}` : `${fixedExt}/[name].[contenthash].${fixedExt}`;
 }
 
-function getCssLoaders(...loaders: webpack.RuleSetUseItem[]) {
+function getCssLoaders(useModules = false, ...loaders: webpack.RuleSetUseItem[]) {
     const cssLoaders: webpack.RuleSetRule['use'] = [
         isDev ? 'style-loader' : MiniCssExtractPlugin.loader,
         {
             loader: 'css-loader',
             options: {
-                modules: {
-                    localIdentName: isDev ? '[name]__[local]--[hash:base64:5]' : '[hash:base64:6]',
-                },
+                modules: useModules
+                    ? {
+                          localIdentName: isDev ? '[name]__[local]--[hash:base64:5]' : '[hash:base64:6]',
+                      }
+                    : undefined,
             },
         },
     ];
@@ -49,17 +51,30 @@ const config: webpack.Configuration = {
         filename: getFilename('.js'),
         chunkFilename: getFilename('.js'),
         path: path.resolve(__dirname, 'build'),
+        publicPath: 'auto',
         clean: true,
     },
     module: {
         rules: [
             {
                 test: /\.css/,
-                use: getCssLoaders(),
+                use: getCssLoaders(true),
+                include: /\.module.css$/,
             },
             {
                 test: /\.s[ac]ss$/,
-                use: getCssLoaders('sass-loader'),
+                use: getCssLoaders(true, 'sass-loader'),
+                include: /\.module.s[ac]ss$/,
+            },
+            {
+                test: /\.css/,
+                use: getCssLoaders(),
+                exclude: /\.module.css$/,
+            },
+            {
+                test: /\.s[ac]ss$/,
+                use: getCssLoaders(false, 'sass-loader'),
+                exclude: /\.module.s[ac]ss$/,
             },
             {
                 test: /\.[jt]sx?$/,
@@ -109,7 +124,7 @@ const config: webpack.Configuration = {
                         comments: false,
                     },
                     compress: {
-                        drop_console: true,
+                        drop_console: !isDev,
                     },
                 },
                 extractComments: false,
@@ -120,8 +135,9 @@ const config: webpack.Configuration = {
     devServer: {
         port: 3000,
         hot: true,
+        historyApiFallback: true,
     },
-    devtool: isDev ? 'eval-cheap-source-map' : undefined,
+    devtool: isDev ? 'source-map' : undefined,
     stats: isDev ? 'minimal' : 'normal',
 };
 
